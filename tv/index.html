@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TV 연결</title>
+<link rel="icon" href="../icon-32.png">
+<style>
+html,body{margin:0;height:100%;background:#0b3b36;color:#fff;font-family:"Malgun Gothic",sans-serif}
+body{display:flex;align-items:center;justify-content:center;text-align:center}
+h1{font-size:4vh;margin:0 0 3vh;font-weight:600;opacity:.85}
+#code{font-size:22vh;font-weight:800;letter-spacing:4vh;margin:0 0 3vh;padding-left:4vh}
+p{font-size:3.2vh;margin:1vh 0;opacity:.8;line-height:1.5}
+#st{font-size:2.6vh;opacity:.55;margin-top:3vh}
+</style>
+</head>
+<body>
+<div>
+<h1 id="ttl"></h1>
+<div id="code">····</div>
+<p id="how"></p>
+<p id="st"></p>
+</div>
+<script>
+/* 📺 TV 번호 연결 — 99C 코드.gs [48]. TV 는 이 짧은 주소만 열면 됨.
+   처음: 4자리 번호를 띄우고 3초마다 서버에 물어봄 → 관리자가 번호를 넣으면 모니터 열쇠를 받아 이 TV 에 기억하고 모니터로.
+   다음부터: 기억한 열쇠로 바로 현황판. 다시 연결하려면 …/tv/?new */
+var CONF = {
+  EXEC: 'https://script.google.com/macros/s/AKfycbyTKWwEPGC1RBN_-OY-sz4UkB1DMokqOnXYvUh4f0exDm0U0u2BFYeeo1Ms77cDGzI7zA/exec',
+  GO: '../?p=monitor&k=',
+  TITLE: '99C TV 모니터 연결',
+  HOW: '<b>99C 코치 화면 ⚙ 설정 → 📺 모니터 → TV 연결</b> 에 이 번호를 넣어 주세요.'
+};
+var SKEY = 'tvBoardKey', key = '';
+try { key = localStorage.getItem(SKEY) || ''; } catch (e) {}
+if (/[?&]new\b/.test(location.search)) { key = ''; try { localStorage.removeItem(SKEY); } catch (e) {} }
+if (key) { location.replace(CONF.GO + encodeURIComponent(key)); }
+else {
+  document.getElementById('ttl').textContent = CONF.TITLE;
+  document.getElementById('how').innerHTML = CONF.HOW;
+  var code = '', nonce = '', born = 0;
+  var fresh = function () {
+    code = ('000' + Math.floor(Math.random() * 10000)).slice(-4);
+    nonce = ''; for (var i = 0; i < 24; i++) nonce += 'abcdefghijklmnopqrstuvwxyz0123456789'.charAt(Math.floor(Math.random() * 36));
+    born = Date.now(); document.getElementById('code').textContent = code;
+  };
+  var tick = function () {
+    if (Date.now() - born > 9 * 60000) fresh();   // 서버 기억 10분 → 9분마다 새 번호
+    fetch(CONF.EXEC, { method: 'POST', credentials: 'omit', body: JSON.stringify({ kind: 'rpc', fn: 'tvPairWait', args: [code, nonce] }) })
+      .then(function (r) { return r.json(); })
+      .then(function (x) {
+        var r = x && x.r;
+        if (!x || !x.ok || !r) { document.getElementById('st').textContent = '서버 응답이 이상해요 — 잠시 뒤 다시 해 볼게요'; return; }
+        if (r.taken) { fresh(); return; }
+        if (r.key) {
+          try { localStorage.setItem(SKEY, r.key); } catch (e) {}
+          document.getElementById('st').textContent = '연결됐어요! 여는 중…';
+          location.replace(CONF.GO + encodeURIComponent(r.key)); return;
+        }
+        document.getElementById('st').textContent = '기다리는 중…';
+      })
+      .catch(function () { document.getElementById('st').textContent = '인터넷 연결을 확인해 주세요 — 계속 다시 해 볼게요'; });
+  };
+  fresh(); tick(); setInterval(tick, 3000);
+}
+</script>
+</body>
+</html>
