@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+/* 📲 설치 페이지 (사용자 2026-11-14: 설치하기 링크를 바로 주고 싶음) — 크롬이 "설치할 수 있다"고 알려 주면(beforeinstallprompt)
+   [설치하기] 버튼으로 바로 설치 창. 안 되는 브라우저·이미 설치됨이면 손으로 하는 방법 안내. 주소 99C 는 앱 하나 */
+var APPS = {
+  lec:   { name: '99C 스터디룸', manifest: '../manifest.json', icon: '../icon-512.png', open: '../', color: '#07746a' }
+};
+var DEF = 'lec';
+var APP = APPS[new URLSearchParams(location.search).get('p') || DEF] || APPS[DEF];
+document.write('<link rel="manifest" href="' + APP.manifest + '"><meta name="theme-color" content="' + APP.color + '"><link rel="icon" href="' + APP.icon + '"><title>' + APP.name + ' 설치</title>');
+</script>
+<style>
+body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:"Malgun Gothic",-apple-system,sans-serif;background:#f4f5f8;color:#202124}
+.card{background:#fff;border-radius:20px;box-shadow:0 4px 24px rgba(0,0,0,.08);padding:36px 28px;max-width:380px;width:calc(100% - 32px);text-align:center}
+.card img{width:120px;height:120px;border-radius:26px}
+h1{font-size:24px;margin:18px 0 6px}
+.sub{color:#5f6368;font-size:15px;margin:0 0 24px}
+#go{width:100%;border:0;border-radius:12px;padding:16px;font-size:19px;font-weight:700;color:#fff;cursor:pointer}
+#go:disabled{opacity:.45;cursor:default}
+#msg{margin-top:16px;font-size:15px;line-height:1.6;color:#3c4043}
+#msg b{color:#202124}
+.open{display:inline-block;margin-top:18px;color:#5f6368;font-size:14px}
+</style>
+</head>
+<body>
+<div class="card">
+  <img id="ic" alt="">
+  <h1 id="nm"></h1>
+  <p class="sub">홈 화면에 앱으로 설치해요 · 주소창 없이 열려요</p>
+  <button id="go" disabled>준비 중…</button>
+  <div id="msg"></div>
+  <a class="open" id="op">설치 없이 바로 열기 →</a>
+</div>
+<script>
+var $ = function (id) { return document.getElementById(id); };
+$('ic').src = APP.icon; $('nm').textContent = APP.name; $('op').href = APP.open; $('go').style.background = APP.color;
+var ask = null;
+var manual = function () {
+  var ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  $('go').style.display = 'none';
+  $('msg').innerHTML = ios
+    ? '사파리 아래쪽 <b>공유 버튼(□↑)</b> → <b>홈 화면에 추가</b> 를 눌러 주세요.'
+    : '이미 설치돼 있으면 홈 화면·앱 목록에서 여세요.<br>아니면 크롬 오른쪽 위 <b>⋮</b> → <b>앱 설치</b>(또는 <b>홈 화면에 추가 → 설치</b>) 를 눌러 주세요.';
+};
+if (matchMedia('(display-mode: standalone)').matches) { location.replace(APP.open); }
+addEventListener('beforeinstallprompt', function (e) {
+  e.preventDefault(); ask = e;
+  $('go').disabled = false; $('go').textContent = '📲 설치하기'; $('msg').textContent = '';
+});
+$('go').onclick = function () {
+  if (!ask) return;
+  ask.prompt();
+  ask.userChoice.then(function (c) {
+    if (c.outcome !== 'accepted') { $('msg').textContent = '설치를 취소했어요. 다시 누르면 돼요.'; }
+  });
+  ask = null; $('go').disabled = true;
+};
+addEventListener('appinstalled', function () {
+  $('go').style.display = 'none';
+  $('msg').innerHTML = '✓ <b>설치됐어요!</b> 홈 화면이나 앱 목록에서 <b>' + APP.name + '</b> 을 눌러 여세요.';
+});
+setTimeout(function () { if (!ask && $('go').style.display !== 'none' && $('go').disabled) manual(); }, 4000);
+</script>
+</body>
+</html>
