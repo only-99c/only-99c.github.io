@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>99C 스터디룸</title>
+<link rel="manifest" href="manifest.json"><link rel="icon" href="icon-32.png"><link rel="apple-touch-icon" href="icon-180.png"><meta name="theme-color" content="#0f766e">
+<style>body{font-family:sans-serif;color:#1c2b27;background:#f3f6f5;padding:40px 16px;text-align:center}</style>
+</head>
+<body>
+<p id="msg">99C 불러오는 중…</p>
+<script>
+/* 99C 바깥 주소 — 패밀리 링크 아이 계정 태블릿용 (코드.gs [47]).
+   구글 계정 정보 없이(credentials omit) 웹앱 화면을 받아 띄우고, google.script.run · url · history 를 대신 만든다.
+   웹앱 주소가 바뀌면 EXEC 만 고친다. 이 파일엔 코드·학생 정보가 없다. */
+var EXEC = 'https://script.google.com/macros/s/AKfycbyTKWwEPGC1RBN_-OY-sz4UkB1DMokqOnXYvUh4f0exDm0U0u2BFYeeo1Ms77cDGzI7zA/exec';
+
+function rpcRunner(ok, bad) {
+  return new Proxy({}, { get: function (t, name) {
+    if (name === 'withSuccessHandler') return function (f) { return rpcRunner(f, bad); };
+    if (name === 'withFailureHandler') return function (f) { return rpcRunner(ok, f); };
+    if (name === 'withUserObject') return function () { return rpcRunner(ok, bad); };
+    return function () {
+      var args = Array.prototype.slice.call(arguments);
+      fetch(EXEC, { method: 'POST', credentials: 'omit', body: JSON.stringify({ kind: 'rpc', fn: name, args: args }) })
+        .then(function (r) { return r.json(); })
+        .then(function (x) { if (x && x.ok) { if (ok) ok(x.r); } else if (bad) bad(new Error((x && x.error) || '서버 오류')); })
+        .catch(function () { if (bad) bad(new Error('서버에 닿지 않았어요. 인터넷 연결을 확인해 주세요.')); });
+    };
+  } });
+}
+window.google = { script: {
+  run: rpcRunner(null, null),
+  url: { getLocation: function (cb) {
+    var q = {}, qs = {};
+    new URLSearchParams(location.search).forEach(function (v, k) { q[k] = v; (qs[k] = qs[k] || []).push(v); });
+    setTimeout(function () { cb({ parameter: q, parameters: qs, hash: location.hash.replace(/^#/, '') }); }, 0);
+  } },
+  history: {
+    push: function (st) { history.pushState(st || null, ''); },
+    replace: function (st) { history.replaceState(st || null, ''); },
+    setChangeHandler: function (f) { addEventListener('popstate', function (e) { f({ state: e.state, location: {} }); }); }
+  },
+  host: { close: function () {}, setHeight: function () {}, setWidth: function () {}, editor: {} }
+} };
+
+fetch(EXEC + '?p=app', { credentials: 'omit' })
+  .then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); })
+  .then(function (html) {
+    if (html.indexOf('<html') < 0) throw new Error('화면이 아님');
+    // 홈 화면 아이콘·앱처럼 열기(manifest) — 화면을 갈아 끼운 뒤에도 남게 같이 넣는다
+    var head = '<meta name="viewport" content="width=device-width, initial-scale=1"><title>99C 스터디룸</title>' +
+      '<link rel="manifest" href="manifest.json"><link rel="icon" href="icon-32.png"><link rel="apple-touch-icon" href="icon-180.png"><meta name="theme-color" content="#0f766e">';
+    html = html.indexOf('<head>') >= 0 ? html.replace('<head>', '<head>' + head) : head + html;
+    document.open(); document.write(html); document.close();
+  })
+  .catch(function (e) {
+    document.getElementById('msg').textContent = '99C 화면을 불러오지 못했어요 (' + e.message + '). 인터넷 연결을 확인하고 새로고침해 주세요.';
+  });
+</script>
+</body>
+</html>
