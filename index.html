@@ -5,10 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>99C 스터디룸</title>
 <link rel="manifest" href="manifest.json"><link rel="icon" href="icon-32.png"><link rel="apple-touch-icon" href="icon-180.png"><meta name="theme-color" content="#0f766e">
-<style>body{font-family:sans-serif;color:#1c2b27;background:#f3f6f5;padding:40px 16px;text-align:center}</style>
+<style>body{font-family:sans-serif;color:#1c2b27;background:#f3f6f5;padding:40px 16px;text-align:center}#pie{width:64px;height:64px;border-radius:50%;margin:0 auto 14px;background:#eaefed}#left{color:#64746f;font-size:14px}</style>
 </head>
 <body>
+<div id="pie"></div>
 <p id="msg">99C 불러오는 중…</p>
+<p id="left"></p>
 <script>
 /* 99C 바깥 주소 — 패밀리 링크 아이 계정 태블릿용 (코드.gs [47]).
    구글 계정 정보 없이(credentials omit) 웹앱 화면을 받아 띄우고, google.script.run · url · history 를 대신 만든다.
@@ -44,10 +46,24 @@ window.google = { script: {
   host: { close: function () {}, setHeight: function () {}, setWidth: function () {}, editor: {} }
 } };
 
+// ⏳ 화면 받는 동안 원그래프 남은 시간 (사용자 2026-11-21). 어림 = 이 기기에서 지난번까지 걸린 시간 평균(99c_loadEst), 처음 6초
+var T0 = Date.now(), EST = 6000;
+try { EST = +localStorage.getItem('99c_loadEst') || 6000; } catch (e) {}
+var PIE_T = setInterval(function () {
+  var gone = Date.now() - T0, left = EST - gone, f = Math.min(1, gone / EST);
+  document.getElementById('pie').style.background = 'conic-gradient(#0f766e ' + Math.round(f * 360) + 'deg, #eaefed 0)';
+  document.getElementById('left').textContent = left > 900 ? '약 ' + Math.ceil(left / 1000) + '초 남았어요' : '거의 다 됐어요…';
+}, 150);
+function loadDone() {
+  clearInterval(PIE_T);
+  try { localStorage.setItem('99c_loadEst', String(Math.round(EST * 0.6 + (Date.now() - T0) * 0.4))); } catch (e) {}
+}
+
 fetch(EXEC + '?p=app', { credentials: 'omit' })
   .then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); })
   .then(function (html) {
     if (html.indexOf('<html') < 0) throw new Error('화면이 아님');
+    loadDone();
     // 홈 화면 아이콘·앱처럼 열기(manifest) — 화면을 갈아 끼운 뒤에도 남게 같이 넣는다
     var head = '<meta name="viewport" content="width=device-width, initial-scale=1"><title>99C 스터디룸</title>' +
       '<link rel="manifest" href="manifest.json"><link rel="icon" href="icon-32.png"><link rel="apple-touch-icon" href="icon-180.png"><meta name="theme-color" content="#0f766e">';
@@ -55,6 +71,7 @@ fetch(EXEC + '?p=app', { credentials: 'omit' })
     document.open(); document.write(html); document.close();
   })
   .catch(function (e) {
+    clearInterval(PIE_T); document.getElementById('left').textContent = '';
     document.getElementById('msg').textContent = '99C 화면을 불러오지 못했어요 (' + e.message + '). 인터넷 연결을 확인하고 새로고침해 주세요.';
   });
 </script>
