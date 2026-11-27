@@ -59,13 +59,21 @@ function loadDone() {
   try { localStorage.setItem('99c_loadEst', String(Math.round(EST * 0.6 + (Date.now() - T0) * 0.4))); } catch (e) {}
 }
 
-fetch(EXEC + '?p=app', { credentials: 'omit' })
-  .then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); })
+/* ⚡ 화면 파일을 기기에 기억 (2026-11-28, 코칭 바깥 주소와 같음): 기억해 둔 화면을 바로 띄우고, 뒤에서 새 화면을 받아 다음번을 위해 바꿔 둠.
+   주소에 ?r 이 있으면 기억한 것 말고 새로 받음. 화면 파일엔 학생 정보가 없음. TV(?p=monitor)는 늘 새로 */
+var QS = new URLSearchParams(location.search), CK = 'outHtml99', RAWURL = EXEC + '?p=app';
+var CACHE_OK = QS.get('p') !== 'monitor', cachedHtml = null;
+if (CACHE_OK && !QS.has('r')) try { cachedHtml = localStorage.getItem(CK); } catch (e) {}
+function refreshJs() {
+  return '<script>setTimeout(function(){try{fetch(' + JSON.stringify(RAWURL) + ',{credentials:"omit"}).then(function(r){return r.ok?r.text():"";}).then(function(t){if(t&&t.length>2000&&t.indexOf("<html")>=0)try{localStorage.setItem(' + JSON.stringify(CK) + ',t);}catch(e){}}).catch(function(){});}catch(e){}},4000);<\/script>';
+}
+(cachedHtml ? Promise.resolve(cachedHtml) : fetch(RAWURL, { credentials: 'omit' }).then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); }))
   .then(function (html) {
     if (html.indexOf('<html') < 0) throw new Error('화면이 아님');
+    if (CACHE_OK && !cachedHtml && html.length > 2000) try { localStorage.setItem(CK, html); } catch (e) {}
     loadDone();
     // 홈 화면 아이콘·앱처럼 열기(manifest) — 화면을 갈아 끼운 뒤에도 남게 같이 넣는다
-    var head = '<meta name="viewport" content="width=device-width, initial-scale=1"><title>99C 스터디룸</title>' +
+    var head = (cachedHtml ? refreshJs() : '') + '<meta name="viewport" content="width=device-width, initial-scale=1"><title>99C 스터디룸</title>' +
       '<link rel="manifest" href="manifest.json"><link rel="icon" href="icon-32.png"><link rel="apple-touch-icon" href="icon-180.png"><meta name="theme-color" content="#0f766e">';
     html = html.indexOf('<head>') >= 0 ? html.replace('<head>', '<head>' + head) : head + html;
     document.open(); document.write(html); document.close();
